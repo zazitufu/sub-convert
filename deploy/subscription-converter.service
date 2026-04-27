@@ -1,0 +1,16 @@
+[Unit]
+Description=Base64 subscription converter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/sub-convert/app
+Environment=PYTHONPATH=/opt/sub-convert/app
+ExecStart=/opt/sub-convert/venv/bin/python -m subscription_converter.cli
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
