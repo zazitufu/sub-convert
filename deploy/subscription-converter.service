@@ -8,6 +8,12 @@ Type=simple
 User=root
 WorkingDirectory=/opt/sub-convert/app
 Environment=PYTHONPATH=/opt/sub-convert/app
+Environment=SUBSCRIPTIONS_DIR=/srv/sub-convert/subscriptions
+Environment=SCAN_INTERVAL_SECONDS=10
+Environment=RULES_REFRESH_HOURS=24
+Environment=RULES_CACHE_DIR=/var/lib/subscription-converter/rules
+Environment=STATE_FILE=/var/lib/subscription-converter/converter-state.json
+Environment=LOG_FILE=/var/log/subscription-converter.log
 ExecStart=/opt/sub-convert/venv/bin/python -m subscription_converter.cli
 Restart=always
 RestartSec=5

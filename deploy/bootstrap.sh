@@ -5,6 +5,11 @@ APP_DIR="${APP_DIR:-/opt/sub-convert}"
 PROJECT_DIR="${PROJECT_DIR:-$APP_DIR/app}"
 VENV_DIR="${VENV_DIR:-$APP_DIR/venv}"
 SUBSCRIPTIONS_DIR="${SUBSCRIPTIONS_DIR:-/srv/sub-convert/subscriptions}"
+SCAN_INTERVAL_SECONDS="${SCAN_INTERVAL_SECONDS:-10}"
+RULES_REFRESH_HOURS="${RULES_REFRESH_HOURS:-24}"
+RULES_CACHE_DIR="${RULES_CACHE_DIR:-/var/lib/subscription-converter/rules}"
+STATE_FILE="${STATE_FILE:-/var/lib/subscription-converter/converter-state.json}"
+LOG_FILE="${LOG_FILE:-/var/log/subscription-converter.log}"
 SERVICE_NAME="${SERVICE_NAME:-subscription-converter.service}"
 SERVICE_TEMPLATE="${SERVICE_TEMPLATE:-$PROJECT_DIR/deploy/subscription-converter.service}"
 SYSTEMD_DIR="${SYSTEMD_DIR:-/etc/systemd/system}"
@@ -57,7 +62,12 @@ install_packages() {
 
 prepare_directories() {
     log "Preparing directories"
-    mkdir -p "$APP_DIR" "$SUBSCRIPTIONS_DIR" /var/lib/subscription-converter/rules
+    mkdir -p \
+        "$APP_DIR" \
+        "$SUBSCRIPTIONS_DIR" \
+        "$RULES_CACHE_DIR" \
+        "$(dirname "$STATE_FILE")" \
+        "$(dirname "$LOG_FILE")"
 }
 
 setup_virtualenv() {
@@ -74,13 +84,55 @@ setup_virtualenv() {
 
 install_service() {
     log "Installing systemd unit to $SERVICE_DEST"
-    sed \
-        -e "s#/opt/sub-convert#$APP_DIR#g" \
-        -e "s#WorkingDirectory=.*#WorkingDirectory=$PROJECT_DIR#g" \
-        -e "s#Environment=PYTHONPATH=.*#Environment=PYTHONPATH=$PROJECT_DIR#g" \
-        -e "s#ExecStart=.*#ExecStart=$VENV_DIR/bin/python -m subscription_converter.cli#g" \
-        "$SERVICE_TEMPLATE" >"$SERVICE_DEST"
+    render_service_file
     chmod 0644 "$SERVICE_DEST"
+}
+
+render_service_file() {
+    APP_DIR="$APP_DIR" \
+    PROJECT_DIR="$PROJECT_DIR" \
+    VENV_DIR="$VENV_DIR" \
+    SUBSCRIPTIONS_DIR="$SUBSCRIPTIONS_DIR" \
+    SCAN_INTERVAL_SECONDS="$SCAN_INTERVAL_SECONDS" \
+    RULES_REFRESH_HOURS="$RULES_REFRESH_HOURS" \
+    RULES_CACHE_DIR="$RULES_CACHE_DIR" \
+    STATE_FILE="$STATE_FILE" \
+    LOG_FILE="$LOG_FILE" \
+    SERVICE_TEMPLATE="$SERVICE_TEMPLATE" \
+    SERVICE_DEST="$SERVICE_DEST" \
+    python3 - <<'PY'
+from pathlib import Path
+import os
+import sys
+
+template_path = Path(os.environ["SERVICE_TEMPLATE"])
+dest_path = Path(os.environ["SERVICE_DEST"])
+text = template_path.read_text(encoding="utf-8")
+
+replacements = {
+    "WorkingDirectory=/opt/sub-convert/app": f"WorkingDirectory={os.environ['PROJECT_DIR']}",
+    "Environment=PYTHONPATH=/opt/sub-convert/app": f"Environment=PYTHONPATH={os.environ['PROJECT_DIR']}",
+    "Environment=SUBSCRIPTIONS_DIR=/srv/sub-convert/subscriptions": f"Environment=SUBSCRIPTIONS_DIR={os.environ['SUBSCRIPTIONS_DIR']}",
+    "Environment=SCAN_INTERVAL_SECONDS=10": f"Environment=SCAN_INTERVAL_SECONDS={os.environ['SCAN_INTERVAL_SECONDS']}",
+    "Environment=RULES_REFRESH_HOURS=24": f"Environment=RULES_REFRESH_HOURS={os.environ['RULES_REFRESH_HOURS']}",
+    "Environment=RULES_CACHE_DIR=/var/lib/subscription-converter/rules": f"Environment=RULES_CACHE_DIR={os.environ['RULES_CACHE_DIR']}",
+    "Environment=STATE_FILE=/var/lib/subscription-converter/converter-state.json": f"Environment=STATE_FILE={os.environ['STATE_FILE']}",
+    "Environment=LOG_FILE=/var/log/subscription-converter.log": f"Environment=LOG_FILE={os.environ['LOG_FILE']}",
+    "ExecStart=/opt/sub-convert/venv/bin/python -m subscription_converter.cli": f"ExecStart={os.environ['VENV_DIR']}/bin/python -m subscription_converter.cli",
+}
+
+missing = [needle for needle in replacements if needle not in text]
+if missing:
+    sys.stderr.write("Service template is missing expected line(s):\n")
+    for needle in missing:
+        sys.stderr.write(f"- {needle}\n")
+    raise SystemExit(1)
+
+for needle, replacement in replacements.items():
+    text = text.replace(needle, replacement)
+
+dest_path.write_text(text, encoding="utf-8")
+PY
 }
 
 reload_and_start() {
@@ -90,8 +142,33 @@ reload_and_start() {
     systemctl enable "$SERVICE_NAME"
     log "Restarting $SERVICE_NAME"
     systemctl restart "$SERVICE_NAME"
-    log "Service status"
-    systemctl status "$SERVICE_NAME" --no-pager
+    if systemctl is-active --quiet "$SERVICE_NAME"; then
+        log "$SERVICE_NAME is active"
+    else
+        log "$SERVICE_NAME is not active after restart; recent logs follow"
+        journalctl -u "$SERVICE_NAME" -n 80 --no-pager || true
+        return 1
+    fi
+}
+
+print_deployment_summary() {
+    cat <<EOF
+[sub-convert] Deployment summary
+[sub-convert] Service: $SERVICE_NAME
+[sub-convert] Project directory: $PROJECT_DIR
+[sub-convert] Virtualenv: $VENV_DIR
+[sub-convert] Subscription directory: $SUBSCRIPTIONS_DIR
+[sub-convert] Scan interval: ${SCAN_INTERVAL_SECONDS}s
+[sub-convert] Rules refresh interval: ${RULES_REFRESH_HOURS}h
+[sub-convert] Rule cache: $RULES_CACHE_DIR
+[sub-convert] State file: $STATE_FILE
+[sub-convert] Log file: $LOG_FILE
+[sub-convert] Run once: cd "$PROJECT_DIR" && PYTHONPATH="$PROJECT_DIR" "$VENV_DIR/bin/python" -m subscription_converter.cli --once
+[sub-convert] Check service: systemctl status "$SERVICE_NAME" --no-pager
+[sub-convert] Follow logs: journalctl -u "$SERVICE_NAME" -f
+[sub-convert] Add source files without suffix under: $SUBSCRIPTIONS_DIR
+[sub-convert] Generated outputs will be sibling .yaml and .json files.
+EOF
 }
 
 main() {
@@ -103,8 +180,7 @@ main() {
     setup_virtualenv
     install_service
     reload_and_start
-    log "Deployment finished successfully."
-    log "Subscription directory: $SUBSCRIPTIONS_DIR"
+    print_deployment_summary
 }
 
 main "$@"

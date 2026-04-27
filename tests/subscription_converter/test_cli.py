@@ -1,10 +1,30 @@
 import logging
+from pathlib import Path
 
 import subscription_converter.cli as cli
 
 
 class FakeConfig:
     scan_interval_seconds = 10
+    log_file = Path("/tmp/sub-convert-test.log")
+
+
+def test_configure_logging_writes_package_logs_to_configured_file(tmp_path):
+    config = FakeConfig()
+    config.log_file = tmp_path / "converter.log"
+    package_logger = logging.getLogger("subscription_converter")
+    original_handlers = list(package_logger.handlers)
+
+    try:
+        cli.configure_logging(config)
+        logging.getLogger("subscription_converter.cli").error("file-log-check")
+
+        assert "file-log-check" in config.log_file.read_text(encoding="utf-8")
+    finally:
+        for handler in package_logger.handlers:
+            if handler not in original_handlers:
+                package_logger.removeHandler(handler)
+                handler.close()
 
 
 def test_daemon_mode_returns_error_code_when_processing_crashes(monkeypatch, caplog):

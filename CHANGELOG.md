@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.6 - 2026-04-28
+
+- Added environment variable support for runtime paths and scan intervals
+- Isolated per-source processing failures so one bad source no longer stops the batch
+- Logged invalid or empty subscription sources instead of silently skipping them
+- Allowed conversion to continue when scheduled rule refresh fails
+- Reworked deployment service rendering to avoid fragile shell substitutions
+- Added post-deployment CLI, service, path, and log hints to the bootstrap script
+
 ## 0.4.5 - 2026-04-28
 
 - Replaced test subscription fixtures with fully synthetic reserved-domain data

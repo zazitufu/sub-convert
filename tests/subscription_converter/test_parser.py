@@ -16,6 +16,24 @@ def test_converter_config_defaults():
     assert config.state_file.name == "converter-state.json"
 
 
+def test_converter_config_reads_environment(monkeypatch, tmp_path):
+    monkeypatch.setenv("SUBSCRIPTIONS_DIR", str(tmp_path / "subscriptions"))
+    monkeypatch.setenv("SCAN_INTERVAL_SECONDS", "7")
+    monkeypatch.setenv("RULES_REFRESH_HOURS", "12")
+    monkeypatch.setenv("RULES_CACHE_DIR", str(tmp_path / "rules"))
+    monkeypatch.setenv("STATE_FILE", str(tmp_path / "state.json"))
+    monkeypatch.setenv("LOG_FILE", str(tmp_path / "converter.log"))
+
+    config = ConverterConfig()
+
+    assert config.scan_dir == tmp_path / "subscriptions"
+    assert config.scan_interval_seconds == 7
+    assert config.rules_refresh_hours == 12
+    assert config.rules_cache_dir == tmp_path / "rules"
+    assert config.state_file == tmp_path / "state.json"
+    assert config.log_file == tmp_path / "converter.log"
+
+
 def test_normalized_node_keeps_required_fields():
     node = NormalizedNode(
         name="demo",

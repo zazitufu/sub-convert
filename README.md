@@ -11,7 +11,7 @@ This public repository is intentionally redacted. It does not include any real p
 
 ## Version
 
-`0.4.5`
+`0.4.6`
 
 ## What It Does
 
@@ -33,6 +33,9 @@ The public repository uses generic defaults:
 - Log file: `/var/log/subscription-converter.log`
 
 If your real deployment uses different paths, adjust them in `subscription_converter/config.py`.
+The daemon also reads these environment variables: `SUBSCRIPTIONS_DIR`,
+`SCAN_INTERVAL_SECONDS`, `RULES_REFRESH_HOURS`, `RULES_CACHE_DIR`,
+`STATE_FILE`, and `LOG_FILE`.
 
 ## Deployment Scripts
 
@@ -51,6 +54,10 @@ The bootstrap script checks:
 - `python3`
 - `systemctl`
 - project files such as `requirements.txt` and `subscription-converter.service`
+
+After installation, the script prints a deployment summary with the service
+name, CLI command, subscription directory, state file, rule cache, and
+`journalctl` command for logs.
 
 ## One-Line Server Install
 

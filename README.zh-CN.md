@@ -16,7 +16,7 @@
 
 ## 当前版本
 
-`0.4.5`
+`0.4.6`
 
 ## 适用场景
 
@@ -58,6 +58,15 @@
 
 - `subscription_converter/config.py`
 
+程序也支持通过环境变量覆盖这些值：
+
+- `SUBSCRIPTIONS_DIR`
+- `SCAN_INTERVAL_SECONDS`
+- `RULES_REFRESH_HOURS`
+- `RULES_CACHE_DIR`
+- `STATE_FILE`
+- `LOG_FILE`
+
 ## 部署脚本
 
 仓库现在提供两层部署脚本：
@@ -75,6 +84,14 @@
 - 是否存在 `python3`
 - 是否存在 `systemctl`
 - 是否存在 `requirements.txt` 和服务文件模板
+
+安装完成后，脚本会输出一组综合提示，包括：
+
+- systemd 服务名
+- 项目目录和虚拟环境目录
+- 订阅源目录、规则缓存目录、状态文件和日志文件
+- 手动执行一次转换的 CLI 命令
+- 查看服务状态和跟踪日志的命令
 
 ## 一键安装命令
 

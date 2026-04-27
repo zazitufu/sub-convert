@@ -33,6 +33,14 @@ def test_bootstrap_script_checks_prerequisites_and_installs_service():
     assert "PROJECT_DIR" in script
     assert "VENV_DIR" in script
     assert "SUBSCRIPTIONS_DIR" in script
+    assert "SCAN_INTERVAL_SECONDS" in script
+    assert "RULES_REFRESH_HOURS" in script
+    assert "render_service_file" in script
+    assert "Deployment summary" in script
+    assert "journalctl -u" in script
+    assert "systemctl is-active --quiet" in script
+    assert "sed " not in script
+    assert "\n    systemctl status" not in script
 
 
 def test_install_script_delegates_to_bootstrap():

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -28,6 +29,11 @@ class FakeCatalog(RuleCatalog):
         self.refresh_count += 1
         state.setdefault("rules", {})["last_refresh"] = "2026-04-24T00:00:00+00:00"
         return True
+
+
+class FailingCatalog(RuleCatalog):
+    def refresh_if_due(self, state, refresh_hours):
+        raise RuntimeError("rules offline")
 
 
 def test_service_rebuilds_outputs_for_changed_source(tmp_path):
@@ -149,6 +155,40 @@ def test_service_keeps_previous_outputs_when_source_is_invalid(tmp_path):
     assert (config.scan_dir / "myhy2.json").read_text(encoding="utf-8") == previous_json
     assert (config.scan_dir / "ignored.yaml").read_text(encoding="utf-8") == "keep: true\n"
     assert json.loads(config.state_file.read_text(encoding="utf-8")) == previous_state
+
+
+def test_service_logs_invalid_sources_without_stopping_batch(tmp_path, caplog):
+    fixture_path = Path(__file__).parent / "fixtures" / "sample_base64.txt"
+    config = _config_for(tmp_path)
+    config.scan_dir.mkdir()
+    (config.scan_dir / "bad").write_bytes(b"\xff\xfe\x00")
+    (config.scan_dir / "empty").write_text("not-base64", encoding="utf-8")
+    (config.scan_dir / "valid").write_text(fixture_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    service = ConverterService(config, rule_catalog=FakeCatalog(config.rules_cache_dir))
+
+    with caplog.at_level(logging.WARNING):
+        processed = service.process_once()
+
+    assert processed == ["valid"]
+    assert (config.scan_dir / "valid.yaml").exists()
+    assert "Failed to process source bad" in caplog.text
+    assert "No supported nodes found in source empty" in caplog.text
+
+
+def test_service_continues_when_rule_refresh_fails(tmp_path, caplog):
+    fixture_path = Path(__file__).parent / "fixtures" / "sample_base64.txt"
+    config = _config_for(tmp_path)
+    config.scan_dir.mkdir()
+    (config.scan_dir / "valid").write_text(fixture_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    service = ConverterService(config, rule_catalog=FailingCatalog(config.rules_cache_dir))
+
+    with caplog.at_level(logging.ERROR):
+        processed = service.process_once()
+
+    assert processed == ["valid"]
+    assert "Failed to refresh rule assets" in caplog.text
 
 
 def test_service_refreshes_rules_before_processing(tmp_path: Path):
