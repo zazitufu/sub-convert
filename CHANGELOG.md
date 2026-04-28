@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.7 - 2026-04-28
+
+- Allowed deployment to continue when `apt-get update` fails because of unrelated broken package indexes
+- Kept `apt-get install` strict so missing required system packages still fail the deployment
+
 ## 0.4.6 - 2026-04-28
 
 - Added environment variable support for runtime paths and scan intervals

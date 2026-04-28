@@ -1,6 +1,6 @@
 [project]
 name = "sub-convert"
-version = "0.4.6"
+version = "0.4.7"
 description = "Server-side subscription converter for Base64 v2rayN sources to Clash and sing-box outputs."
 readme = "README.md"
 requires-python = ">=3.11"

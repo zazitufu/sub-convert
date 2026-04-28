@@ -39,6 +39,8 @@ def test_bootstrap_script_checks_prerequisites_and_installs_service():
     assert "Deployment summary" in script
     assert "journalctl -u" in script
     assert "systemctl is-active --quiet" in script
+    assert "apt-get update failed; continuing" in script
+    assert "if ! apt-get update; then" in script
     assert "sed " not in script
     assert "\n    systemctl status" not in script
 

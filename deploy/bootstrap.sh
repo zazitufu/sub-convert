@@ -55,7 +55,9 @@ check_prerequisites() {
 install_packages() {
     export DEBIAN_FRONTEND=noninteractive
     log "Updating apt package index"
-    apt-get update
+    if ! apt-get update; then
+        log "apt-get update failed; continuing because apt-get install may still use existing package indexes"
+    fi
     log "Installing required packages"
     apt-get install -y python3 python3-venv python3-pip ca-certificates
 }

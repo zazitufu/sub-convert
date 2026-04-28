@@ -11,7 +11,7 @@ This public repository is intentionally redacted. It does not include any real p
 
 ## Version
 
-`0.4.6`
+`0.4.7`
 
 ## What It Does
 
